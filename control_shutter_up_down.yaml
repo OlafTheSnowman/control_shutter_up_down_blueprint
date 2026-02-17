@@ -1,0 +1,132 @@
+blueprint:
+  homeassistant:
+    min_version: 2006.2.0
+  name: control_shutter_up_down
+  description: Shutter control with interlocking
+  author: OlafTheSnowman
+  source_url: https://github.com/OlafTheSnowman/control_shutter_up_down_blueprint.git
+  domain: automation
+  input:
+    switch_shutter_up:
+      name: switch_shutter_up
+      description: Your switch to get the shutter up.
+      selector:
+        entity:
+          domain:
+          - switch
+          - input_boolean
+          reorder: false
+          multiple: false
+    switch_shutter_down:
+      name: switch_shutter_down
+      description: Your switch to get the shutter down.
+      selector:
+        entity:
+          domain:
+          - switch
+          - input_boolean
+          reorder: false
+          multiple: false
+    motor_shutter_up:
+      name: motor_shutter_up
+      description: Your motor relay to get the shutter up.
+      selector:
+        entity:
+          domain:
+          - switch
+          - input_boolean
+          reorder: false
+          multiple: false
+    motor_shutter_down:
+      name: motor_shutter_down
+      description: Your motor relay to get the shutter down.
+      selector:
+        entity:
+          domain:
+          - switch
+          - input_boolean
+          reorder: false
+          multiple: false
+    max_on_duration:
+      name: max_on_duration
+      description: Maximum on-time before the shutter motor to be turned off.
+      default: 00:00:40
+      selector:
+        duration: {}
+mode: single
+triggers:
+- trigger: state
+  id: trigger_switch_shutter_up
+  entity_id: !input switch_shutter_up
+  to: 'on'
+- trigger: state
+  id: trigger_switch_shutter_down
+  entity_id: !input switch_shutter_down
+  to: 'on'
+- trigger: state
+  entity_id:
+  - !input motor_shutter_up
+  - !input motor_shutter_down
+  id: trigger_shutter_should_not_run_endless
+  to: 'on'
+  for: !input max_on_duration
+- trigger: state
+  entity_id:
+  - !input motor_shutter_up
+  - !input motor_shutter_down
+  id: trigger_only_one_relay_is_allowed_to_be_on
+conditions: []
+actions:
+  - choose:
+#   Open the shutter on/off.
+    - conditions:
+      - condition: trigger
+        id: trigger_switch_shutter_up
+      sequence:
+        - action: input_boolean.toggle
+          metadata: {}
+          data: {}
+          target:
+            entity_id: !input motor_shutter_up
+#   Close the shutter on/off.
+    - conditions:
+      - condition: trigger
+        id: trigger_switch_shutter_down
+      sequence:
+        - action: input_boolean.toggle
+          metadata: {}
+          data: {}
+          target:
+            entity_id: !input motor_shutter_down
+#   Software interlock directions (up/down), only one is allowed to be on!
+    - conditions:
+      - condition: and
+        conditions:
+        - condition: trigger
+          id: trigger_only_one_relay_is_allowed_to_be_on
+        - condition: state
+          entity_id: !input motor_shutter_up
+          state: 'on'
+        - condition: state
+          entity_id: !input motor_shutter_down
+          state: 'on'
+      sequence:
+        - action: input_boolean.turn_off
+          metadata: {}
+          data: {}
+          target:
+            entity_id: 
+            - !input motor_shutter_up
+            - !input motor_shutter_down
+#   Shutter should not get endlessly power, after the time has run out, swith the tension off.
+    - conditions:
+      - condition: trigger
+        id: trigger_shutter_should_not_run_endless
+      sequence:
+        - action: input_boolean.turn_off
+          metadata: {}
+          data: {}
+          target:
+            entity_id: 
+            - !input motor_shutter_up
+            - !input motor_shutter_down
